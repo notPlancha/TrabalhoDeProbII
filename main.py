@@ -12,14 +12,7 @@ T2-Criar uma pilha de tarefas
 T3-Criar um interface
 T4O-Criar ficheiro do log do dia
 APENAS UM FICHEIRO .py
-TODO
-para o T40, o meu plano é no if main por um try/finnaly para guardar as coisas da fila
-Dps quando recomeçar poder escolher o dia de hoje ou fazer load de um dia specifico
-(n consegue criar nada para a fila ai, apenas confirmar como feito e ver as antigas)
-TODO O meu plano é criar um cli based, dps fazer um interface no pygame
 """
-# TODO remove this
-# file:///C:/Users/Andre/Downloads/Enunciado_B_Trabalho_Individual_1.pdf
 from __future__ import annotations
 
 import os
@@ -215,7 +208,8 @@ def formCli(questions: list[tuple[str, Callable, Exception, Callable]], response
 
 def clearConsole():
     command = 'clear'
-    if os.name in ('nt', 'dos'):  # If Machine is running on Windows, use cls
+    # Windows
+    if os.name in ('nt', 'dos'):
         command = 'cls'
     os.system(command)
 
