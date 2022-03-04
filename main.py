@@ -29,11 +29,14 @@ from dataclasses import dataclass
 from typing import Callable, TextIO
 
 from dateutil.parser import parse
-#classes
+
+
+# classes
 class Seccao(Enum):
     RC = "Criação / Renovação do cartão de cidadão"
     RP = "Criação / Renovação do passaporte"
     QC = "Questões judiciais"
+
 
 class Cliente:
     class idType(Enum):
@@ -55,6 +58,7 @@ class Cliente:
     def __str__(self):
         return self.id
 
+
 class Trabalhador:
     def __init__(self, idNumb: int):
         if idNumb <= 0 or idNumb > 9999:
@@ -63,10 +67,11 @@ class Trabalhador:
 
     def __str__(self):
         i = len(str(self.id))
-        return f"T{'0'*(4-i)}{self.id}"
+        return f"T{'0' * (4 - i)}{self.id}"
 
     class InvalidId(ValueError):
         pass
+
 
 @dataclass
 class Tarefa:
@@ -74,7 +79,6 @@ class Tarefa:
     seccao: Seccao
     cliente: Cliente
     data: int | float = datetime.now().timestamp()
-
 
     @staticmethod
     def criarTarefa(
@@ -116,10 +120,13 @@ class Tarefa:
 
     def __repr__(self):
         return f"{self.trabalhador.id}|{self.seccao.name}|{self.cliente.id}|{self.cliente.tipoId.name}|{self.data}"
+
     def __str__(self):
         # noinspection PyTypeChecker
         return f"Trabalhador: {self.trabalhador}; Secção: {self.seccao.name}; Cliente: {self.cliente}; " \
                f"Data Criada: {datetime.fromtimestamp(self.data)};"
+
+
 class PilhaTarefas:
     def __init__(self):
         self.l: list[Tarefa] = []
@@ -144,23 +151,12 @@ class PilhaTarefas:
 
     def number_of_tasks(self, sector: Seccao | str) -> int:
         if type(sector) is str:
-            match sector:
-                case "RC":
-                    sector = Seccao.RC
-                case "RP":
-                    sector = Seccao.RP
-                case "QC":
-                    sector = Seccao.QC
-                case _:
-                    raise ValueError("Secção não existe")
+            sector = Seccao[sector]
         ret = 0
-        if type(sector) is Seccao:
-            for i in self.l:
-                if i.seccao == sector:
-                    ret += 1
-            return ret
-        else:
-            raise TypeError
+        for i in self.l:
+            if i.seccao == sector:
+                ret += 1
+        return ret
 
     def __len__(self):  # Apenas Tarefas realizadas
         return len(self.l)
@@ -175,10 +171,11 @@ class PilhaTarefas:
         for i in self.l:
             yield i
 
-#utils functions
 
-#here, cancel will be last option
-def chooseOptionCli(optionList : list[str], cancel : bool, pergunta : str  = "Qual opção?", loop = False) -> str:
+# utils functions
+
+# here, cancel will be last option
+def chooseOptionCli(optionList: list[str], cancel: bool, pergunta: str = "Qual opção?", loop=False) -> str:
     optionsDict = {}
     for i in range(len(optionList) - (1 if cancel else 0)):
         iToAdd = str(i + 1)
@@ -186,7 +183,9 @@ def chooseOptionCli(optionList : list[str], cancel : bool, pergunta : str  = "Qu
     if cancel:
         optionsDict["0"] = optionList[-1]
     return chooseOptionCliwDict(optionsDict, pergunta, loop)
-def chooseOptionCliwDict(optionDict: dict, pergunta : str = "Qual opção?", loop :bool = False) -> str:
+
+
+def chooseOptionCliwDict(optionDict: dict, pergunta: str = "Qual opção?", loop: bool = False) -> str:
     ass = []
     for a in optionDict:
         print(f"{a}: {optionDict[a]}")
@@ -199,7 +198,9 @@ def chooseOptionCliwDict(optionDict: dict, pergunta : str = "Qual opção?", loo
     else:
         inp = input(pergunta).strip()
     return inp
-def formCli(questions : list[tuple[str, Callable, Exception, Callable]], responses:list = None) -> list:
+
+
+def formCli(questions: list[tuple[str, Callable, Exception, Callable]], responses: list = None) -> list:
     if responses is None: responses = [None for i in questions]
     for i in range(len(questions)):
         if responses[i] is not None: continue
@@ -210,19 +211,22 @@ def formCli(questions : list[tuple[str, Callable, Exception, Callable]], respons
         else:
             responses[i] = (trans(inp) if trans is not None else inp)
     return responses
+
+
 def clearConsole():
     command = 'clear'
     if os.name in ('nt', 'dos'):  # If Machine is running on Windows, use cls
         command = 'cls'
     os.system(command)
 
-#program functions
-def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = False, experimental : bool = False):
+
+# program functions
+def menu(pilha: PilhaTarefas = None, tarefa: Tarefa = None, loop: bool = False, experimental: bool = False):
     if pilha is None:
         pilha = PilhaTarefas
     menuCiclo = True
     clearConsole()
-    while menuCiclo:  #do/while alternative
+    while menuCiclo:  # do/while alternative
         if not loop:
             menuCiclo = False
         menuOptions = [
@@ -271,10 +275,9 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
             case "5":
                 try:
                     seccao = chooseOptionCliwDict({i.name: i.value for i in Seccao}, pergunta="Qual Secção?")
+                    input(f"Há {pilha.number_of_tasks(seccao.upper())} dessa secção nesta pilha")
                 except KeyError:
                     input("Seccão não reconhecida")
-                    continue
-                input(f"Há {pilha.number_of_tasks(seccao)} dessa secção nesta pilha")
             case "6":
                 lp = len(pilha)
                 if lp == 0:
@@ -288,6 +291,7 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 elif os.path.exists(fr"saves\{inp}.txt"):
                     cont = input("Essa pilha já existe, continuar irá substitui-la. Continuar? [y]")
                     if cont.strip() != "y":
+                        input("Cancelado")
                         continue
 
                 with open(fr"saves\{inp}.txt", "w") as f:
@@ -295,7 +299,8 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 input("Salvo")
             case "8":
                 if len(pilha) > 0:
-                    inp = input("Esta opção vai substituir a pilha atual com a Pilha salva. Para evitar isto pode salvar a pilha atual. Conitnuar? [y]")
+                    inp = input(
+                        "Esta opção vai substituir a pilha atual com a Pilha salva. Para evitar isto pode salvar a pilha atual. Conitnuar? [y]")
                     if inp.strip() != "y":
                         continue
                 l = []
@@ -312,26 +317,29 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 if opt == "0":
                     input("Cancelado")
                     continue
-                with open(fr"saves\{l[int(opt)-1]}.txt", "r") as f:
+                with open(fr"saves\{l[int(opt) - 1]}.txt", "r") as f:
                     pilha = loadPilha(f)
                 input("Pilha carregada!")
             case _:
                 input("Não reconhecido, certifique-se que selecionou uma das opções")
 
-def savePilha(f : TextIO, pilha : PilhaTarefas):
+
+def savePilha(f: TextIO, pilha: PilhaTarefas):
     first = pilha.get_last()
     for i in pilha:
         if not i == first:
             f.write("\n")
         f.write(repr(i))
 
-def loadPilha(f : TextIO) -> PilhaTarefas:
+
+def loadPilha(f: TextIO) -> PilhaTarefas:
     ret = PilhaTarefas()
     for line in f.readlines():
-        ret.l.append(Tarefa.fromRepr(line)) #here is append because the lines are in coordenance with it's order
+        ret.l.append(Tarefa.fromRepr(line))  # here is append because the lines are in coordenance with it's order
     return ret
+
 
 if __name__ == '__main__':
     PilhaMain = PilhaTarefas()
     ciclo = True
-    menu(PilhaMain, loop= True)
+    menu(PilhaMain, loop=True)
