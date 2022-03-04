@@ -29,7 +29,6 @@ from dataclasses import dataclass
 from typing import Callable, TextIO
 
 from dateutil.parser import parse
-from numbers import Number
 #classes
 class Seccao(Enum):
     RC = "Criação / Renovação do cartão de cidadão"
@@ -38,7 +37,7 @@ class Seccao(Enum):
 
 class Cliente:
     class idType(Enum):
-        Pass = "Passport"
+        Pass = "Passaporte"
         CCPort = "Cartão de cidadão português"
         CCEuro = "Cartão de cidadão de um pais membro da união europeia"
         CCEst = "Cartão de cidadão de um pais não membro da união europeia"
@@ -48,7 +47,7 @@ class Cliente:
         def _missing_(cls, value):
             return Cliente.idType.NE
 
-    def __init__(self, ccOrPass: str, tipoId: idType):
+    def __init__(self, ccOrPass: str, tipoId: Cliente.idType):
         if not ccOrPass.isalnum(): raise ValueError("Identificacao não pode ter simbolos")
         self.id = ccOrPass
         self.tipoId = tipoId
@@ -59,11 +58,12 @@ class Cliente:
 class Trabalhador:
     def __init__(self, idNumb: int):
         if idNumb <= 0 or idNumb > 9999:
-            raise Trabalhador.InvalidId()
+            raise Trabalhador.InvalidId("Id tem que ser entre 0 e 9999")
         self.id = idNumb
 
     def __str__(self):
-        return f"T{self.id}"
+        i = len(str(self.id))
+        return f"T{'0'*(4-i)}{self.id}"
 
     class InvalidId(ValueError):
         pass
@@ -73,17 +73,15 @@ class Tarefa:
     trabalhador: Trabalhador
     seccao: Seccao
     cliente: Cliente
-    data: Number = datetime.now().timestamp()
+    data: int | float = datetime.now().timestamp()
 
-    def __repr__(self):
-        return f"{self.trabalhador.id}|{self.seccao.name}|{self.cliente.id}"
 
     @staticmethod
     def criarTarefa(
             idTrabalhador: int = None,
             seccao: Seccao = None,
             nId: tuple[str, Cliente.idType] = None,
-            data: str | Number = None
+            data: str | int | float = None
     ) -> Tarefa:
         if idTrabalhador is None:
             idTrabalhador = input("Id do Trabalhador? ")
@@ -93,29 +91,35 @@ class Tarefa:
         t = Trabalhador(idTrabalhador)
         if seccao is None:
             try:
-                seccao = Seccao[chooseOptionCliwDict({i.name: i.value for i in Seccao})]
-            except KeyError: # input inserido errado TODO verificar se e este o erro q levanta
+                seccao = Seccao[chooseOptionCliwDict({i.name: i.value for i in Seccao}).upper()]
+            except KeyError:
                 raise ValueError("Secção tem que existir")
         if nId is None:
             nId = (input("Id do cliente?"), Cliente.idType.NE)
         client = Cliente(nId[0], nId[1])
         if data is None:
-            date = datetime.now()
+            date = datetime.now().timestamp()
         else:
             dataT = type(data)
             if dataT is str:
                 date = parse(data).timestamp()
-            elif dataT is Number:
+            elif dataT is int or dataT is float:
                 date = data
             else:
                 raise TypeError
         return Tarefa(t, seccao, client, date)
 
+    @staticmethod
+    def fromRepr(reprStr) -> Tarefa:
+        id, seccao, cliId, cliIdT, data = reprStr.split("|")
+        return Tarefa.criarTarefa(int(id), Seccao[seccao], (cliId, Cliente.idType[cliIdT]), float(data))
+
+    def __repr__(self):
+        return f"{self.trabalhador.id}|{self.seccao.name}|{self.cliente.id}|{self.cliente.tipoId.name}|{self.data}"
     def __str__(self):
         # noinspection PyTypeChecker
-        return f"Trabalhador: {self.trabalhador}; Secção: {self.seccao}; Cliente: {self.cliente}; " \
-               f"Data Criada: {datetime.fromtimestamp(self.data)}; Realizada: {('Sim' if self.done else 'Não')}"
-
+        return f"Trabalhador: {self.trabalhador}; Secção: {self.seccao.name}; Cliente: {self.cliente}; " \
+               f"Data Criada: {datetime.fromtimestamp(self.data)};"
 class PilhaTarefas:
     def __init__(self):
         self.l: list[Tarefa] = []
@@ -124,12 +128,12 @@ class PilhaTarefas:
         if task is None:
             task = Tarefa.criarTarefa()
             print(task)
-            inp = input("Confirmar? [1]")
-            if inp.strip() != "1":
+            inp = input("Confirmar? [y]")
+            if inp.strip() != "y":
                 input("Cancelado")
                 return
             else:
-                print("Tarefa criada")
+                input("Tarefa criada")
         self.l.insert(0, task)
 
     def get_last(self):
@@ -148,7 +152,7 @@ class PilhaTarefas:
                 case "QC":
                     sector = Seccao.QC
                 case _:
-                    raise ValueError
+                    raise ValueError("Secção não existe")
         ret = 0
         if type(sector) is Seccao:
             for i in self.l:
@@ -168,8 +172,8 @@ class PilhaTarefas:
         return ret
 
     def __iter__(self):
-        return self.l
-
+        for i in self.l:
+            yield i
 
 #utils functions
 
@@ -184,12 +188,12 @@ def chooseOptionCli(optionList : list[str], cancel : bool, pergunta : str  = "Qu
     return chooseOptionCliwDict(optionsDict, pergunta, loop)
 def chooseOptionCliwDict(optionDict: dict, pergunta : str = "Qual opção?", loop :bool = False) -> str:
     ass = []
-    for a, b in optionDict:
-        print(f"{a}: {b}")
-        ass.append(a)
+    for a in optionDict:
+        print(f"{a}: {optionDict[a]}")
+        ass.append(a.upper())
     if loop:
         inp = input(pergunta).strip()
-        while inp not in ass:
+        while inp.upper() not in ass:
             print("Não reconhecido, certificar-se que selecionou uma das opções")
             inp = input(pergunta).strip()
     else:
@@ -227,20 +231,19 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
             "Ver Tarefa Do Topo da Fila",
             "Remover Tarefa Do Top da Fila",
             "Ver Número de Tarefas de um Setor",
-            "Ver Número de Tarefas Total da Pilha"
-            "Ver todas as tarefas realizadas",
+            "Ver Número de Tarefas Total da Pilha",
             "Guardar Pilha de Tarefas",
             "Carregar Pilha de Tarefas"
         ]
         if experimental: menuOptions.append("Outros")
-        if not loop: menuOptions.append("Sair")
+        if loop: menuOptions.append("Sair")
         option = chooseOptionCli(menuOptions, cancel=loop)
         match option:
             case "0":
                 menuCiclo = False
             case "1":
-                inp = input("Esta opção vai criar uma nova pilha vazia. Continuar? [1]")
-                if inp.strip() == "1":
+                inp = input("Esta opção vai criar uma nova pilha vazia. Continuar? [y]")
+                if inp.strip() == "y":
                     pilha = PilhaTarefas()
                     input("Nova pilha criada")
                 else:
@@ -249,7 +252,7 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 try:
                     pilha.add(tarefa)
                 except ValueError as e:
-                    input(f"Erro! {e}")
+                    input(f"Erro! {str(e)}")
                     continue
             case "3":
                 if len(pilha) > 0:
@@ -257,8 +260,8 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 else:
                     input("A pilha está vazia")
             case "4":
-                inp = input("Esta opção vai remover a última. Continuar? [1]")
-                if inp == "1":
+                inp = input("Esta opção vai remover a última. Continuar? [y]")
+                if inp.strip() == "y":
                     if len(pilha) > 0:
                         input(f"pilha removida: {pilha.remove_last()}")
                     else:
@@ -267,11 +270,11 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                     input("Senha não removida")
             case "5":
                 try:
-                    seccao = Seccao[chooseOptionCliwDict({i.name: i.value for i in Seccao}, pergunta="Qual Secção? ")]
+                    seccao = chooseOptionCliwDict({i.name: i.value for i in Seccao}, pergunta="Qual Secção?")
                 except KeyError:
                     input("Seccão não reconhecida")
                     continue
-                input(f"Há {pilha.number_of_tasks()} dessa secção nesta pilha")
+                input(f"Há {pilha.number_of_tasks(seccao)} dessa secção nesta pilha")
             case "6":
                 lp = len(pilha)
                 if lp == 0:
@@ -279,17 +282,18 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 else:
                     input(f"Há {'apenas ' if lp == 1 else ''}{len(pilha)} tarefa{'' if lp == 1 else 's'} na pilha")
             case "7":
-                input(pilha)
-            case "8":
                 inp = input("Nome da Pilha? ")
-                if os.path.exists(fr"saves\{inp}.txt"):
-                    cont = input("Essa pilha já existe, continuar ir'a substitui-la. Continuar? [y]")
+                if not os.path.exists("saves"):
+                    os.mkdir("saves")
+                elif os.path.exists(fr"saves\{inp}.txt"):
+                    cont = input("Essa pilha já existe, continuar irá substitui-la. Continuar? [y]")
                     if cont.strip() != "y":
                         continue
+
                 with open(fr"saves\{inp}.txt", "w") as f:
                     savePilha(f, pilha)
                 input("Salvo")
-            case "9":
+            case "8":
                 if len(pilha) > 0:
                     inp = input("Esta opção vai substituir a pilha atual com a Pilha salva. Para evitar isto pode salvar a pilha atual. Conitnuar? [y]")
                     if inp.strip() != "y":
@@ -303,21 +307,29 @@ def menu(pilha : PilhaTarefas = None, tarefa : Tarefa = None, loop : bool = Fals
                 if len(l) == 0:
                     input("Não há pilhas salvas!")
                     continue
+                l.append("Cancelar")
                 opt = chooseOptionCli(l, True, "Qual pilha?", True)
-                with open(fr"saves\{opt}.txt", "r") as f:
+                if opt == "0":
+                    input("Cancelado")
+                    continue
+                with open(fr"saves\{l[int(opt)-1]}.txt", "r") as f:
                     pilha = loadPilha(f)
                 input("Pilha carregada!")
             case _:
-                raise NotImplemented
+                input("Não reconhecido, certifique-se que selecionou uma das opções")
 
 def savePilha(f : TextIO, pilha : PilhaTarefas):
-    pass
+    first = pilha.get_last()
+    for i in pilha:
+        if not i == first:
+            f.write("\n")
+        f.write(repr(i))
 
 def loadPilha(f : TextIO) -> PilhaTarefas:
-    pass
-
-def checkFormatForTarefa(TarInStr):
-    pass
+    ret = PilhaTarefas()
+    for line in f.readlines():
+        ret.l.append(Tarefa.fromRepr(line)) #here is append because the lines are in coordenance with it's order
+    return ret
 
 if __name__ == '__main__':
     PilhaMain = PilhaTarefas()
